@@ -1,0 +1,152 @@
+from pgmpy.models import DiscreteBayesianNetwork
+from pgmpy.factors.discrete import TabularCPD
+from pgmpy.inference import VariableElimination
+import networkx as nx
+import matplotlib.pyplot as plt
+
+# 1. Definir a estrutura da rede
+model = DiscreteBayesianNetwork([
+    ('Fumante', 'Bronquite'),          # Fumante influencia Bronquite
+    ('Poluição', 'Bronquite'),         # Poluição influencia Bronquite
+    ('Bronquite', 'DificuldadeResp'),  # Bronquite influencia Dificuldade Respiratória
+    ('Pneumonia', 'DificuldadeResp'),  # Pneumonia influencia Dificuldade Respiratória
+    ('Pneumonia', 'Febre'),            # Pneumonia influencia Febre
+    ('Pneumonia', 'Tosse')             # Pneumonia influencia Tosse
+])
+
+
+pos = {
+    'Fumante': (0, 1),
+    'Poluição': (0, 0),  # Movido para esquerda
+    'Bronquite': (1, 0.5),
+    'Pneumonia': (2, 1),  # Movido para direita
+    'DificuldadeResp': (3, 0.5),
+    'Febre': (3, 1.5),
+    'Tosse': (3, 0)
+}
+
+
+
+# 2. Definir as probabilidades condicionais (CPDs)
+
+# Variáveis binárias: 0 = Não, 1 = Sim
+
+# Fumante (sem pais)
+cpd_fumante = TabularCPD(
+    variable='Fumante', 
+    variable_card=2, 
+    values=[[0.7], [0.3]]  # 30% de chance de ser fumante
+)
+
+# Poluição (sem pais)
+cpd_poluicao = TabularCPD(
+    variable='Poluição', 
+    variable_card=2, 
+    values=[[0.6], [0.4]]  # 40% de chance de alta poluição
+)
+
+# Pneumonia (sem pais)
+cpd_pneumonia = TabularCPD(
+    variable='Pneumonia', 
+    variable_card=2, 
+    values=[[0.9], [0.1]]  # 10% de prevalência na população
+)
+
+# Bronquite (depende de Fumante e Poluição)
+cpd_bronquite = TabularCPD(
+    variable='Bronquite',
+    variable_card=2,
+    values=[
+        [0.9, 0.7, 0.6, 0.1],  # P(Bronquite=0 | Fumante, Poluição)
+        [0.1, 0.3, 0.4, 0.9]   # P(Bronquite=1 | Fumante, Poluição)
+    ],
+    evidence=['Fumante', 'Poluição'],
+    evidence_card=[2, 2]
+)
+
+# Dificuldade Respiratória (depende de Bronquite e Pneumonia)
+cpd_dificuldade = TabularCPD(
+    variable='DificuldadeResp',
+    variable_card=2,
+    values=[
+        [0.8, 0.6, 0.3, 0.1],  # P(Dificuldade=0 | Bronquite, Pneumonia)
+        [0.2, 0.4, 0.7, 0.9]   # P(Dificuldade=1 | Bronquite, Pneumonia)
+    ],
+    evidence=['Bronquite', 'Pneumonia'],
+    evidence_card=[2, 2]
+)
+
+# Febre (depende apenas de Pneumonia)
+cpd_febre = TabularCPD(
+    variable='Febre',
+    variable_card=2,
+    values=[
+        [0.9, 0.3],  # P(Febre=0 | Pneumonia)
+        [0.1, 0.7]   # P(Febre=1 | Pneumonia)
+    ],
+    evidence=['Pneumonia'],
+    evidence_card=[2]
+)
+
+# Tosse (depende apenas de Pneumonia)
+cpd_tosse = TabularCPD(
+    variable='Tosse',
+    variable_card=2,
+    values=[
+        [0.7, 0.2],  # P(Tosse=0 | Pneumonia)
+        [0.3, 0.8]   # P(Tosse=1 | Pneumonia)
+    ],
+    evidence=['Pneumonia'],
+    evidence_card=[2]
+)
+
+# 3. Adicionar todas as CPDs ao modelo
+model.add_cpds(
+    cpd_fumante, 
+    cpd_poluicao, 
+    cpd_pneumonia,
+    cpd_bronquite,
+    cpd_dificuldade,
+    cpd_febre,
+    cpd_tosse
+)
+
+# 4. Verificar o modelo
+print("O modelo é válido?", model.check_model())
+
+# 5. Visualizar a rede
+def plot_bayesian_network(model):
+    plt.figure(figsize=(10, 8))
+    G = nx.DiGraph()
+    G.add_edges_from(model.edges())
+    
+    nx.draw_networkx_nodes(G, pos, node_size=3000, node_color='lightblue', alpha=0.9)
+    nx.draw_networkx_labels(G, pos, font_size=12, font_weight='bold')
+    nx.draw_networkx_edges(G, pos, arrowsize=20, width=2, edge_color='gray')
+
+    
+    plt.title("Rede Bayesiana para Diagnóstico de Pneumonia")
+    plt.axis('off')
+    plt.tight_layout()
+    plt.show()
+
+plot_bayesian_network(model)
+
+# 6. Realizar inferência
+infer = VariableElimination(model)
+
+# Cenário 1: Paciente com tosse e febre
+resultado = infer.query(
+    variables=['Pneumonia'],
+    evidence={'Tosse': 1, 'Febre': 1}
+)
+print("\nProbabilidade de Pneumonia dado Tosse e Febre:")
+print(resultado)
+
+# Cenário 2: Paciente fumante com dificuldade respiratória
+resultado2 = infer.query(
+    variables=['Pneumonia'],
+    evidence={'DificuldadeResp': 1, 'Fumante': 1}
+)
+print("\nProbabilidade de Pneumonia dado Dificuldade Respiratória e ser Fumante:")
+print(resultado2)
