@@ -4,22 +4,22 @@ from pgmpy.inference import VariableElimination
 import networkx as nx
 import matplotlib.pyplot as plt
 
-# 1. Definir a estrutura da rede
+
 model = DiscreteBayesianNetwork([
-    ('Fumante', 'Bronquite'),          # Fumante influencia Bronquite
-    ('Poluição', 'Bronquite'),         # Poluição influencia Bronquite
-    ('Bronquite', 'DificuldadeResp'),  # Bronquite influencia Dificuldade Respiratória
-    ('Pneumonia', 'DificuldadeResp'),  # Pneumonia influencia Dificuldade Respiratória
-    ('Pneumonia', 'Febre'),            # Pneumonia influencia Febre
-    ('Pneumonia', 'Tosse')             # Pneumonia influencia Tosse
+    ('Fumante', 'Bronquite'),          
+    ('Poluição', 'Bronquite'),         
+    ('Bronquite', 'DificuldadeResp'), 
+    ('Pneumonia', 'DificuldadeResp'),  
+    ('Pneumonia', 'Febre'),            
+    ('Pneumonia', 'Tosse')             
 ])
 
 
 pos = {
     'Fumante': (0, 1),
-    'Poluição': (0, 0),  # Movido para esquerda
+    'Poluição': (0, 0),  
     'Bronquite': (1, 0.5),
-    'Pneumonia': (2, 1),  # Movido para direita
+    'Pneumonia': (2, 1),  
     'DificuldadeResp': (3, 0.5),
     'Febre': (3, 1.5),
     'Tosse': (3, 0)
@@ -27,80 +27,76 @@ pos = {
 
 
 
-# 2. Definir as probabilidades condicionais (CPDs)
 
-# Variáveis binárias: 0 = Não, 1 = Sim
-
-# Fumante (sem pais)
 cpd_fumante = TabularCPD(
     variable='Fumante', 
     variable_card=2, 
-    values=[[0.7], [0.3]]  # 30% de chance de ser fumante
+    values=[[0.7], [0.3]]  
 )
 
-# Poluição (sem pais)
+
 cpd_poluicao = TabularCPD(
     variable='Poluição', 
     variable_card=2, 
-    values=[[0.6], [0.4]]  # 40% de chance de alta poluição
+    values=[[0.6], [0.4]]  
 )
 
-# Pneumonia (sem pais)
+
 cpd_pneumonia = TabularCPD(
     variable='Pneumonia', 
     variable_card=2, 
-    values=[[0.9], [0.1]]  # 10% de prevalência na população
+    values=[[0.9], [0.1]]  
 )
 
-# Bronquite (depende de Fumante e Poluição)
+
 cpd_bronquite = TabularCPD(
     variable='Bronquite',
     variable_card=2,
     values=[
-        [0.9, 0.7, 0.6, 0.1],  # P(Bronquite=0 | Fumante, Poluição)
-        [0.1, 0.3, 0.4, 0.9]   # P(Bronquite=1 | Fumante, Poluição)
+        [0.9, 0.7, 0.6, 0.1], 
+        [0.1, 0.3, 0.4, 0.9]   
     ],
     evidence=['Fumante', 'Poluição'],
     evidence_card=[2, 2]
 )
 
-# Dificuldade Respiratória (depende de Bronquite e Pneumonia)
+
 cpd_dificuldade = TabularCPD(
     variable='DificuldadeResp',
     variable_card=2,
     values=[
-        [0.8, 0.6, 0.3, 0.1],  # P(Dificuldade=0 | Bronquite, Pneumonia)
-        [0.2, 0.4, 0.7, 0.9]   # P(Dificuldade=1 | Bronquite, Pneumonia)
+        [0.8, 0.6, 0.3, 0.1], 
+        [0.2, 0.4, 0.7, 0.9] 
     ],
     evidence=['Bronquite', 'Pneumonia'],
     evidence_card=[2, 2]
 )
 
-# Febre (depende apenas de Pneumonia)
+
 cpd_febre = TabularCPD(
     variable='Febre',
     variable_card=2,
     values=[
-        [0.9, 0.3],  # P(Febre=0 | Pneumonia)
-        [0.1, 0.7]   # P(Febre=1 | Pneumonia)
+        [0.9, 0.3],  
+        [0.1, 0.7]  
     ],
     evidence=['Pneumonia'],
     evidence_card=[2]
 )
 
-# Tosse (depende apenas de Pneumonia)
+
 cpd_tosse = TabularCPD(
     variable='Tosse',
     variable_card=2,
     values=[
-        [0.7, 0.2],  # P(Tosse=0 | Pneumonia)
-        [0.3, 0.8]   # P(Tosse=1 | Pneumonia)
+        [0.7, 0.2],  
+        [0.3, 0.8]  
     ],
     evidence=['Pneumonia'],
     evidence_card=[2]
 )
 
-# 3. Adicionar todas as CPDs ao modelo
+
 model.add_cpds(
     cpd_fumante, 
     cpd_poluicao, 
@@ -111,10 +107,10 @@ model.add_cpds(
     cpd_tosse
 )
 
-# 4. Verificar o modelo
+
 print("O modelo é válido?", model.check_model())
 
-# 5. Visualizar a rede
+
 def plot_bayesian_network(model):
     plt.figure(figsize=(10, 8))
     G = nx.DiGraph()
@@ -132,10 +128,10 @@ def plot_bayesian_network(model):
 
 plot_bayesian_network(model)
 
-# 6. Realizar inferência
+
 infer = VariableElimination(model)
 
-# Cenário 1: Paciente com tosse e febre
+
 resultado = infer.query(
     variables=['Pneumonia'],
     evidence={'Tosse': 1, 'Febre': 1}
@@ -143,7 +139,7 @@ resultado = infer.query(
 print("\nProbabilidade de Pneumonia dado Tosse e Febre:")
 print(resultado)
 
-# Cenário 2: Paciente fumante com dificuldade respiratória
+
 resultado2 = infer.query(
     variables=['Pneumonia'],
     evidence={'DificuldadeResp': 1, 'Fumante': 1}
